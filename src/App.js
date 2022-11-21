@@ -1,51 +1,83 @@
 import { useState, useEffect, useRef } from "react";
 import * as DOMPurify from "dompurify";
 import { marked } from "marked";
+import {
+  appContainer,
+  sConverterContainer,
+  sTextAreaContainer,
+  sTextArea,
+  sTextAreaFocused,
+} from "./styles/mdConverter";
+import CustomTextArea from "./components/CustomTextArea";
 
 export default function App() {
   const textAreaEl = useRef(null);
   const mdPreview = useRef(null);
   const [textAreaValue, setTextAreaValue] = useState("");
   const [convertedArea, setConvertedArea] = useState("");
+  const [indentVal, setIndentVal] = useState(2);
+  const [isFocus, setIsFocus] = useState(false);
 
-  const appContainer = {
-    display: "flex",
-    flexDirection: "column",
+  const handleKeyCode = (k) => {
+    if (k.key === "Tab" && k.shiftKey) {
+      k.preventDefault();
+      console.log(textAreaEl.current.value);
+      textAreaEl.current.value = textAreaEl.current.value.trim();
+      handleIndentRemove();
+      // textAreaEl.current.selectionStart -= indentVal;
+      // textAreaEl.current.selectionEnd -= indentVal;
+    } else if (!k.shiftKey && k.key === "Tab") {
+      let currPos = textAreaEl.current.selectionStart;
+
+      k.preventDefault();
+      textAreaEl.current.value =
+        textAreaEl.current.value.slice(0, textAreaEl.current.selectionStart) +
+        handleIndentInsert() +
+        textAreaEl.current.value.slice(textAreaEl.current.selectionStart);
+      textAreaEl.current.selectionStart = currPos + indentVal;
+      textAreaEl.current.selectionEnd = textAreaEl.current.selectionStart;
+    }
   };
 
-  const sConverterContainer = {
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "space-evenly",
-    alignItems: "center",
-    width: "100%",
+  const handleIndentInsert = () => {
+    let str = "";
+
+    for (let i = 0; i < indentVal; i++) {
+      str += " ";
+    }
+
+    return str;
   };
 
-  const sTextAreaContainer = {
-    display: "flex",
-    flexDirection: "column",
-    width: "100%",
-    padding: ".5rem",
-  };
+  const handleIndentRemove = () => {
+    let x = textAreaEl.current.selectionStart;
+    let y = textAreaEl.current.selectionStart;
+    let isRunning = true;
 
-  const sTextArea = {
-    resize: "none",
-    outline: "none",
-    border: ".1rem solid",
-    borderRadius: ".5rem",
-    padding: "0.3rem 0.6rem",
+    while (isRunning) {
+      if (textAreaEl.current.value.charAt(x) === " " || x === 0) {
+        if (
+          textAreaEl.current.value.charAt(y) === " " ||
+          y === textAreaEl.current.value.length
+        ) {
+          isRunning = false;
+        } else y++;
+      } else x--;
+    }
+
+    console.log(textAreaEl.current.value.slice(x + 1, y));
   };
 
   useEffect(() => {
     setConvertedArea(marked.parse(textAreaValue));
     let cleanConvertedArea = DOMPurify.sanitize(convertedArea);
     mdPreview.current.innerHTML = cleanConvertedArea;
-    // mdPreview.current.innerHTML = convertedArea;
     return () => {};
-  }, [textAreaValue]);
+  }, [textAreaValue, convertedArea]);
 
   return (
     <div style={appContainer}>
+      <CustomTextArea />
       <div style={sConverterContainer}>
         <div style={sTextAreaContainer}>
           <label htmlFor="mdField">C'est ici le MD:</label>
@@ -55,10 +87,20 @@ export default function App() {
             rows="20"
             wrap="off"
             ref={textAreaEl}
+            autoFocus
+            onFocus={() => {
+              setIsFocus(true);
+            }}
+            onBlurCapture={() => {
+              setIsFocus(false);
+            }}
             onChange={() => {
               setTextAreaValue(textAreaEl.current.value);
             }}
-            style={sTextArea}
+            onKeyDownCapture={(key) => {
+              handleKeyCode(key);
+            }}
+            style={isFocus ? sTextAreaFocused : sTextArea}
           />
         </div>
         <div style={sTextAreaContainer}>
